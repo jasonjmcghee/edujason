@@ -1,0 +1,85 @@
+openapi: 3.0.0
+info:
+  title: Learning Slides API
+  description: An API for generating educational slides and videos
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+paths:
+  /slide-content-prompt:
+    post:
+      description: Provide a description of the subject the student wants to learn, and follow the provided steps.
+      operationId: getNextSteps
+      requestBody:
+        description: The description of the subject the student wants to learn about.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject:
+                  type: string
+      responses:
+        '200':
+          description: The prompt which is required to be retrieved in order to build the presentation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    type: string
+  /video-script-prompt:
+    post:
+      description: Retrieve the video script prompt which will instruct you how to create the script.
+      operationId: storeContentAndRetrievePrompt
+      requestBody:
+        description: The created slides in markdown format which will be used to create the video's spoken script.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slides:
+                  type: array
+                  items:
+                    title: Markdown
+                    type: string
+      responses:
+        '200':
+          description: The prompt which is required to be retrieved in order to write the spoken script.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompt:
+                    type: string
+  /make-video:
+    post:
+      summary: Create the final video using the video script
+      operationId: createVideo
+      requestBody:
+        description: The video script for each slide which will be added to the slide content
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slides:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: The link to watch the video.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  link:
+                    type: string

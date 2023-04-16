@@ -1,0 +1,63 @@
+# Introduction to Traits in Rust
+
+Note:
+Hey there! In this video, we're going to talk about one of the coolest features of Rust: Traits!
+---
+## What are Traits?
+- Traits are a way to define shared behavior across types.
+- They are similar to interfaces in other languages.
+
+Note:
+So, what are traits?
+
+Traits are like a set of skills that a Rust type can possess. Just like you might have different skills, like cooking, programming, or even juggling, Rust types can have different traits.
+---
+## Defining a Trait
+```rust
+trait Animal {
+    fn speak(&self);
+}
+```
+- The `trait` keyword is used to define a trait.
+- The trait defines a method `speak` that must be implemented by any type that implements this trait.
+
+Note:
+Defining a trait is pretty easy! You use the trait keyword to define what the trait can do.
+---
+## Implementing a Trait
+```rust
+struct Dog;
+impl Animal for Dog {
+    fn speak(&self) {
+        println!("Woof!");
+    }
+}
+```
+- The `impl` keyword is used to implement a trait for a specific type.
+- Here, the `Dog` struct implements the `Animal` trait by providing a concrete implementation for the `speak` method.
+
+Note:
+In this example, we define a Fly trait that requires the type that implements it to have a fly method.
+
+---
+## Using Traits in Functions
+```rust
+fn make_animal_speak(animal: &dyn Animal) {
+    animal.speak();
+}
+let dog = Dog;
+make_animal_speak(&dog);
+```
+- Traits can be used as function parameters to accept any type that implements the trait.
+- The `dyn` keyword is used to indicate a trait object.
+
+Note:
+Now that we have defined a trait, we can implement it for any type that we want!
+---
+## Summary
+- Traits allow you to define shared behavior across types.
+- Traits are defined using the `trait` keyword and implemented using the `impl` keyword.
+- Traits can be used as function parameters to accept any type that implements the trait.
+
+Note:
+And that's it! Traits are a powerful feature in Rust that allow for code reuse and generic programming. They provide a way to define and enforce behavior across different types.
