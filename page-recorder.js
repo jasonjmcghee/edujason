@@ -217,7 +217,11 @@ const makeVideo = (url) => {
       const concatenatedVideo = 'concatenated_video.mp4';
       await concatenateVideos(data.videos, concatenatedVideo);
 
-      const backgroundAudioFile = 'lakeside-path.mp3';
+      const backgroundAudioFiles = [
+        'Falaal.mp3', 'Heliotrope.mp3', 'Leatherbound.mp3', 'Lovers-Hollow.mp3', 'lakeside-path.mp3'
+      ];
+      const backgroundAudioFile = backgroundAudioFiles[Math.floor(Math.random() * backgroundAudioFiles.length)];
+      // const backgroundAudioFile = 'lakeside-path.mp3';
       const volume = '0.3'; // Adjust the background audio volume (0.1 = 10% of original volume)
       const outputWithBackgroundAudio = 'final-video.mp4';
 

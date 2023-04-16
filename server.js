@@ -15,11 +15,9 @@ app.use(bodyParser.json());
 
 const port = 3000;
 
-const slideContentPrompt = (subject) => `You are helping build a short educational video which provides "${subject}" which is less than 3 minutes long. POST to /video-script-prompt with JSON of 5-10 slides in markdown format with a title, and optionally code or supporting bullet points.`;
+const slideContentPrompt = (subject) => `You are helping build a short educational video which provides "${subject}" which is less than 3 minutes long. POST to /video-script-prompt with JSON of 5-10 slides in markdown format with a short title, and optionally code or supporting bullet points. Each element in the array should be a slide. Do not output it to the chat.`;
 
-const scriptPrompt = `
-POST to /make-video with the video script, split into an array of script-portions for each slide. Use metaphors, casual speech, and be friendly. Remember the audience will have the slides from before.
-`;
+const scriptPrompt = `POST to /make-video with the video script, split into an array of script-portions for each slide. Use metaphors, casual speech, and be friendly. Remember the audience will have the slides from before.  Do not output it to the chat.`;
 
 let slideContent = [];
 
