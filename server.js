@@ -1,9 +1,9 @@
 const express = require('express');
-const {readFileSync, statSync, createReadStream} = require("fs");
+const {readFileSync, statSync, createReadStream, writeFileSync, mkdir} = require("fs");
 const {makeVideo} = require("./page-recorder");
 const cors = require('cors');
 const bodyParser = require('body-parser');
-
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 
@@ -15,24 +15,27 @@ app.use(bodyParser.json());
 
 const port = 3000;
 
-const slideContentPrompt = (subject) => `You are helping build a short educational video which provides "${subject}" which is less than 3 minutes long. POST to /video-script-prompt with JSON of 5-10 slides in markdown format with a short title, and optionally code or supporting bullet points. Each element in the array should be a slide. Do not output it to the chat.`;
+const useCode = false;
 
-const scriptPrompt = `POST to /make-video with the video script, split into an array of script-portions for each slide. Use metaphors, casual speech, and be friendly. Remember the audience will have the slides from before.  Do not output it to the chat.`;
+const slideContentPrompt = (subject) => `You are helping build a short educational video which provides "${subject}" which is less than 3 minutes long. POST to /video-script-prompt with JSON of 5-10 slides in markdown format with a short title, and optionally subheading${useCode ? ", code (tagged with the language, separated by a blank line)," : ""} or supporting bullet points. One element in the array is an entire slide. Do not output it to the chat.`;
 
+const scriptPrompt = `POST to /make-video with the video script, split into an array of script-portions for each slide. Incorporate dry satirical humor - don't recycle jokes. Use creative metaphors (not too many, do not use "like"), use casual speech, and be friendly. Start and end in unique ways. Spell out any symbols. Mention any uncertainty with material presented. Remember the audience will have the slides from before.  Do not output it to the chat.`;
+
+let uniqueFolder = "";
 let slideContent = [];
-
-app.get('/sample', (req, res) => {
-  const sample = slideContent.join("\n\n---\n\n");
-  const page = readFileSync('public/index.html', 'utf-8').replace('{replace_me}', sample);
-  console.log(page);
-  res.send(page);
-});
 
 /** This must be called first to generate the prompt necessary for creating initial slides for learning. */
 app.post("/slide-content-prompt", (req, res) => {
   const jsonData = req.body;
+  const subject = jsonData["subject"];
+  uniqueFolder = uuidv4();
+  mkdir(uniqueFolder, (err) => {
+    if (err) {
+      console.error(err);
+    }
+  });
   res.send({
-    "prompt": slideContentPrompt(jsonData["subject"])
+    "prompt": slideContentPrompt(subject)
   })
 });
 
@@ -47,15 +50,19 @@ app.post("/video-script-prompt", (req, res) => {
 app.post('/make-video', async (req, res) => {
   const jsonData = req.body;
   jsonData["slides"].forEach((s, i) => {
-    slideContent[i] += `\nNote:\n\n${s}`;
+    slideContent[i] = (slideContent[i] || "") + `\nNote:\n\n${s}`;
   });
-  await makeVideo("http://localhost:3000/sample");
-  res.send({"link": "http://localhost:3000/watch"});
+  const sample = slideContent.join("\n\n---\n\n");
+  writeFileSync(`${uniqueFolder}/presentation.md`, sample, 'utf8');
+  const page = readFileSync('public/index.html', 'utf-8').replace('{replace_me}', sample);
+  writeFileSync(`public/${uniqueFolder}.html`, page, 'utf8');
+  await makeVideo(`http://localhost:3000/${uniqueFolder}.html`, uniqueFolder);
+  res.send({"link": `http://localhost:3000/watch/${uniqueFolder}`});
 });
 
 app.use(express.static('public'));
 
-app.get('/watch', (req, res) => {
+app.get('/watch/:folder', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
   <head>
@@ -66,21 +73,21 @@ app.get('/watch', (req, res) => {
   </head>
   <body>
     <video controls style="width: 100%; height: auto">
-      <source src="http://localhost:3000/video" type="video/mp4">
+      <source src="http://localhost:3000/video/${req.params["folder"]}" type="video/mp4">
     </video>
   </body>
 </html>`);
 });
 
 
-app.get('/video', (req, res) => {
+app.get('/video/:folder', (req, res) => {
   const range = req.headers.range;
   if (!range) {
     res.status(400).send('Range header not found');
     return;
   }
 
-  const videoPath = 'final-video.mp4';
+  const videoPath = `${req.params["folder"]}/final-video.mp4`;
   const stats = statSync(videoPath);
   const videoSize = stats.size;
 

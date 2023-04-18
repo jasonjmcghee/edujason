@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer');
 const { spawn, exec } = require('node:child_process');
-const {writeFileSync, createWriteStream} = require("fs");
+const {writeFileSync, createWriteStream, existsSync} = require("fs");
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 require('dotenv').config();
@@ -48,8 +48,8 @@ async function addBackgroundAudio(videoFile, backgroundAudioFile, volume, output
 }
 
 
-async function concatenateVideos(videos, outputFile) {
-  const videosToConcat = "videos-to-concat.txt";
+async function concatenateVideos(videos, outputFile, folder) {
+  const videosToConcat = `videos-to-concat.txt`;
   const content = videos.map(video => `file '${video}'`).join('\n');
   writeFileSync(videosToConcat, content, 'utf8');
 
@@ -90,12 +90,13 @@ const elevenLabsAPI = async (apiKey, text, voice_id, file_name) => {
 
 async function text_to_mp3(text, filename) {
   const antoni_voice_id = "ErXwobaYiN019PkySvjV";
+  console.log("Calling ElevenLabsAPI");
   return await elevenLabsAPI(process.env.ELEVEN_LABS_API, text, antoni_voice_id, filename);
 }
 
 function text_to_mp3_fallback(text, filename) {
   return new Promise((resolve, reject) => {
-    exec(`say "${text}" -o ${filename}.aiff && sox ${filename}.aiff ${filename}.mp3 && rm ${filename}.aiff`, (error, stdout, stderr) => {
+    exec(`say "${text}" -o "${filename}.aiff" && sox "${filename}.aiff" "${filename}.mp3" && rm "${filename}.aiff"`, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error while executing ffmpeg command: ${error.message}`);
         reject(error);
@@ -134,7 +135,7 @@ async function getAudioDuration(audioFile) {
   });
 }
 
-async function generateVideoWithAudioAndImage(audioFile, imageFile, outputFile) {
+async function generateVideoWithAudioAndImage(audioFile, imageFile, outputFile, isLast = false) {
   return new Promise(async (resolve, reject) => {
     // Construct the ffmpeg command
     // const ffmpegCommand = `ffmpeg -loop 1 -i "${imageFile}" -i "${audioFile}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${outputFile}"`;
@@ -146,7 +147,7 @@ async function generateVideoWithAudioAndImage(audioFile, imageFile, outputFile) 
       '-i', `${audioFile}`,
       '-c:v', 'libx264',
       '-tune', 'stillimage',
-      '-t', audioDuration.toString(),
+      '-t', (isLast ? audioDuration + 2 : audioDuration).toString(),
       '-c:a', 'aac',
       '-b:a', '192k',
       '-pix_fmt', 'yuv420p',
@@ -166,7 +167,23 @@ async function generateVideoWithAudioAndImage(audioFile, imageFile, outputFile) 
   });
 }
 
-const makeVideo = (url) => {
+async function createFinalVideo(folder, videoFilenames) {
+  const concatenatedVideo = `${folder}/concatenated_video.mp4`;
+  await concatenateVideos(videoFilenames, concatenatedVideo, folder);
+
+  const backgroundAudioFiles = [
+    'Falaal.mp3', 'Heliotrope.mp3', 'Leatherbound.mp3', 'Lovers-Hollow.mp3', 'lakeside-path.mp3'
+  ];
+  const backgroundAudioFile = backgroundAudioFiles[Math.floor(Math.random() * backgroundAudioFiles.length)];
+  writeFileSync(`${folder}/music.txt`, backgroundAudioFile, 'utf8');
+  // const backgroundAudioFile = 'lakeside-path.mp3';
+  const volume = '0.1'; // Adjust the background audio volume (0.1 = 10% of original volume)
+  const outputWithBackgroundAudio = `${folder}/final-video.mp4`;
+
+  await addBackgroundAudio(concatenatedVideo, backgroundAudioFile, volume, outputWithBackgroundAudio);
+}
+
+const makeVideo = (url, folder) => {
   return new Promise(async (resolve, reject) => {
     const width = 1920;
     const height = 1080;
@@ -185,7 +202,7 @@ const makeVideo = (url) => {
     });
 
     page.exposeFunction("slideschanged", async (script) => {
-      const path = `image-${data.images.length}.png`;
+      const path = `${folder}/image-${data.images.length}.png`;
       data.images.push(path);
       data.scripts.push(script);
       await page.screenshot({type: 'png', path: path});
@@ -199,33 +216,25 @@ const makeVideo = (url) => {
       // await Promise.all(
         for (const image of data.images) {
           const i = data.images.indexOf(image);
-          const audio_filename = `audio-${i}.mp3`;
+          const audio_filename = `${folder}/audio-${i}.mp3`;
           data.audio.push(audio_filename);
+          if (existsSync(audio_filename)) {
+            continue;
+          }
           await text_to_mp3(data.scripts[i], audio_filename);
         }
       // );
 
       await Promise.all(
         data.images.map((image, i) => {
-          const audio_filename = `audio-${i}.mp3`;
-          const video_filename = `video-${data.videos.length}.mp4`;
+          const audio_filename = `${folder}/audio-${i}.mp3`;
+          const video_filename = `${folder}/video-${data.videos.length}.mp4`;
           data.videos.push(video_filename);
-          return generateVideoWithAudioAndImage(audio_filename, image, video_filename);
+          return generateVideoWithAudioAndImage(audio_filename, image, video_filename, i === data.images.length - 1);
         })
       );
 
-      const concatenatedVideo = 'concatenated_video.mp4';
-      await concatenateVideos(data.videos, concatenatedVideo);
-
-      const backgroundAudioFiles = [
-        'Falaal.mp3', 'Heliotrope.mp3', 'Leatherbound.mp3', 'Lovers-Hollow.mp3', 'lakeside-path.mp3'
-      ];
-      const backgroundAudioFile = backgroundAudioFiles[Math.floor(Math.random() * backgroundAudioFiles.length)];
-      // const backgroundAudioFile = 'lakeside-path.mp3';
-      const volume = '0.3'; // Adjust the background audio volume (0.1 = 10% of original volume)
-      const outputWithBackgroundAudio = 'final-video.mp4';
-
-      await addBackgroundAudio(concatenatedVideo, backgroundAudioFile, volume, outputWithBackgroundAudio);
+      await createFinalVideo(folder, data.videos);
       resolve();
     });
 
@@ -233,4 +242,4 @@ const makeVideo = (url) => {
   });
 };
 
-module.exports = { makeVideo }
+module.exports = { makeVideo, getAudioDuration, addBackgroundAudio, createFinalVideo }

@@ -3,3 +3,6 @@ backup-*
 node_modules
 *.mp3
 *.mp4
+*.png
+videos*
+videos-to-concat.txt

@@ -245,6 +245,7 @@ section.has-light-background, section.has-light-background h1, section.has-light
 
 .reveal .code-wrapper code {
   white-space: pre;
+  min-width: fit-content;
 }
 
 .reveal table {
